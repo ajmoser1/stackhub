@@ -375,6 +375,13 @@ When you have everything you need, end your last message with exactly this on it
 [READY_TO_RECOMMEND]
 
 PHASE 2 — RECOMMENDATION:
+Before settling on any tool, think deeply and broadly. Survey the full landscape — including newer, niche, or purpose-built tools that most people haven't heard of. Do not default to whatever is most popular or most mentioned in tutorials. Ask yourself: is there a tool built specifically for this use case that outperforms the generic options? Is there something newer that solves this more elegantly? Actively look past the obvious choices.
+
+For each component of the stack, mentally compare at least 3–5 real options before choosing one. Favour tools that are:
+- Purpose-built for the use case rather than general-purpose
+- Genuinely best-in-class, even if lesser-known
+- A realistic fit for this person's technical level and budget
+
 Respond with ONLY a valid JSON object (no markdown, no text outside the JSON):
 {
   "summary": "One sentence describing what we're building",
@@ -382,7 +389,7 @@ Respond with ONLY a valid JSON object (no markdown, no text outside the JSON):
     {
       "category": "What this tool does in plain English (e.g. Build & Deploy, Database, Payments)",
       "tool": "Tool Name",
-      "reason": "2-3 sentences explaining why this is the right pick for this specific project. Be direct and practical.",
+      "reason": "2-3 sentences explaining why this is the right pick for this specific project. Be direct and practical. If it's lesser-known, briefly explain what it is.",
       "url": "https://tool-homepage.com"
     }
   ],
@@ -568,16 +575,22 @@ Include 3–6 stack items. Only include tools that are genuinely needed. Every p
     scrollToBottom();
   }
 
-  async function callWorker(messages) {
+  async function callWorker(messages, useThinking = false) {
+    const body = {
+      model: 'claude-sonnet-4-6',
+      max_tokens: useThinking ? 16000 : 2048,
+      system: SYSTEM_PROMPT,
+      messages,
+    };
+
+    if (useThinking) {
+      body.thinking = { type: 'enabled', budget_tokens: 10000 };
+    }
+
     const response = await fetch(WORKER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 2048,
-        system: SYSTEM_PROMPT,
-        messages,
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
@@ -586,7 +599,9 @@ Include 3–6 stack items. Only include tools that are genuinely needed. Every p
     }
 
     const data = await response.json();
-    return data.content[0].text;
+    // Return only the text block (skip thinking blocks)
+    const textBlock = data.content.find(b => b.type === 'text');
+    return textBlock ? textBlock.text : '';
   }
 
   async function handleSend() {
@@ -613,7 +628,7 @@ Include 3–6 stack items. Only include tools that are genuinely needed. Every p
         history.push({ role: 'user', content: 'Please provide your recommendation now.' });
         appendTyping();
 
-        const recText = await callWorker(history);
+        const recText = await callWorker(history, true);
         removeTyping();
 
         try {
