@@ -166,6 +166,51 @@
 
     .rec-footer { font-size: 12px; color: var(--muted); text-align: center; padding: 4px 0 8px; }
 
+    .starter-prompt-block {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .starter-prompt-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .starter-prompt-header span {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .copy-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 4px 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 11px;
+      transition: color 0.15s, border-color 0.15s;
+    }
+
+    .copy-btn:hover { color: var(--text); border-color: #444; }
+    .copy-btn.copied { color: #6dbf7e; border-color: #6dbf7e; }
+
+    .starter-prompt-text {
+      padding: 14px;
+      font-size: 13px;
+      color: #bbb;
+      line-height: 1.7;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
     .input-area {
       padding: 16px 0 20px;
       border-top: 1px solid var(--border);
@@ -275,11 +320,11 @@
     <h2>What are you building?</h2>
     <p>Describe your project, idea, or goal and get a precise tech stack recommendation.</p>
     <div class="examples">
-      <div class="example-chip">A solo SaaS product</div>
-      <div class="example-chip">An internal company tool</div>
-      <div class="example-chip">A mobile app for consumers</div>
-      <div class="example-chip">An e-commerce store</div>
-      <div class="example-chip">A data pipeline</div>
+      <div class="example-chip">An app idea I can't code myself</div>
+      <div class="example-chip">A SaaS I want to launch solo</div>
+      <div class="example-chip">An AI-powered tool</div>
+      <div class="example-chip">An online store</div>
+      <div class="example-chip">An internal team tool</div>
     </div>
   </div>
 
@@ -297,39 +342,54 @@
   // After deploying your Cloudflare Worker, replace this with your worker URL.
   const WORKER_URL = 'https://stackhub-proxy.stackhub.workers.dev';
 
-  const SYSTEM_PROMPT = `You are StackHub, an expert technology advisor. Your job is to recommend the single most effective tool for each component of a user's project or idea.
+  const SYSTEM_PROMPT = `You are StackHub, a tool that helps non-technical and vibe-coder types figure out exactly what software, AI tools, and services they should use to build their idea — without needing to know how to code.
+
+Your recommendations should focus on:
+- AI builders and coding assistants (e.g. Lovable, Bolt.new, Cursor, v0, Claude Code)
+- Backend and database services (e.g. Supabase, Firebase, Convex)
+- Hosting and deployment (e.g. Vercel, Netlify, Railway)
+- Auth services (e.g. Clerk, Supabase Auth)
+- Payment tools (e.g. Stripe, Lemon Squeezy)
+- AI/LLM APIs (e.g. Claude, OpenAI, Groq)
+- Email services (e.g. Resend, Loops)
+- File storage (e.g. Cloudflare R2, Uploadthing)
+- Analytics (e.g. PostHog, Plausible)
+- Design/UI tools (e.g. shadcn/ui, Framer, Tailwind)
+- CMS or content tools (e.g. Notion API, Sanity)
+- Any other SaaS or no-code tool that fits
+
+Do NOT recommend programming languages or generic frameworks as primary tools. Focus on concrete products and services a person can sign up for and start using today.
 
 PHASE 1 — CLARIFICATION:
-Before making any recommendations, you must fully understand the user's endeavor. Ask follow-up questions to clarify:
-- Core purpose and goals
-- Target audience and their technical level
-- Scale expectations (personal use, small team, thousands of users, etc.)
-- Budget constraints (free/open-source vs. paid services)
-- Team size and technical expertise of the builders
-- Deployment preferences or constraints
-- Any existing tools, systems, or languages they're committed to
-- Timeline or urgency
+Before making any recommendations, ask follow-up questions to fully understand the project:
+- What it does and who it's for
+- Whether they want to build it themselves with AI assistance or use no-code tools
+- Scale expectations (just for them, small group, or public product)
+- Budget (free tools only, or okay with paid services)
+- Whether they already have any tools or accounts in place
+- Any specific features that matter (payments, auth, file uploads, AI, etc.)
 
-Ask questions conversationally. You can ask multiple related questions at once if it makes sense, but don't overwhelm. Keep asking until you have a clear, complete picture. Do NOT make recommendations during this phase.
+Ask conversationally — a few questions at a time, not a big list. Keep going until you have a complete picture. Do NOT recommend anything during this phase.
 
-When you are fully satisfied you have enough information, end your last clarifying message with exactly this token on its own line:
+When you have everything you need, end your last message with exactly this on its own line:
 [READY_TO_RECOMMEND]
 
 PHASE 2 — RECOMMENDATION:
-When triggered, respond with ONLY a valid JSON object (no markdown, no explanation outside the JSON):
+Respond with ONLY a valid JSON object (no markdown, no text outside the JSON):
 {
   "summary": "One sentence describing what we're building",
   "stack": [
     {
-      "category": "short functional role (e.g. Frontend, Database, Auth, Hosting)",
+      "category": "What this tool does in plain English (e.g. Build & Deploy, Database, Payments)",
       "tool": "Tool Name",
-      "reason": "2-3 sentences: why this is the best choice for THIS specific project. Be specific, not generic.",
-      "url": "https://homepage-of-tool.com"
+      "reason": "2-3 sentences explaining why this is the right pick for this specific project. Be direct and practical.",
+      "url": "https://tool-homepage.com"
     }
-  ]
+  ],
+  "starter_prompt": "A ready-to-use prompt the user can paste into Claude Code or another AI assistant to start building. It should describe the project clearly, list the chosen tools and why, and tell the AI what to set up first. Write it in first person as if the user is speaking to an AI assistant. Make it thorough enough to actually get started — 150 to 250 words."
 }
 
-Include 3–6 stack items depending on complexity. Choose only tools that are genuinely needed. Every recommendation must be the single best tool for the job given the user's specific constraints.`;
+Include 3–6 stack items. Only include tools that are genuinely needed. Every pick should be the single best tool for the job given this person's specific situation.`;
 
   let history = [];
   let awaitingRecommendation = false;
@@ -462,12 +522,44 @@ Include 3–6 stack items depending on complexity. Choose only tools that are ge
       grid.appendChild(card);
     });
 
+    if (data.starter_prompt) {
+      const promptBlock = document.createElement('div');
+      promptBlock.className = 'starter-prompt-block';
+
+      const promptHeader = document.createElement('div');
+      promptHeader.className = 'starter-prompt-header';
+      promptHeader.innerHTML = '<span>Starter Prompt</span>';
+
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'copy-btn';
+      copyBtn.textContent = 'Copy';
+      copyBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(data.starter_prompt).then(() => {
+          copyBtn.textContent = 'Copied!';
+          copyBtn.classList.add('copied');
+          setTimeout(() => { copyBtn.textContent = 'Copy'; copyBtn.classList.remove('copied'); }, 2000);
+        });
+      });
+      promptHeader.appendChild(copyBtn);
+
+      const promptText = document.createElement('div');
+      promptText.className = 'starter-prompt-text';
+      promptText.textContent = data.starter_prompt;
+
+      promptBlock.appendChild(promptHeader);
+      promptBlock.appendChild(promptText);
+
+      rec.appendChild(summary);
+      rec.appendChild(grid);
+      rec.appendChild(promptBlock);
+    } else {
+      rec.appendChild(summary);
+      rec.appendChild(grid);
+    }
+
     const footer = document.createElement('div');
     footer.className = 'rec-footer';
     footer.textContent = 'Ask follow-up questions or start a new conversation.';
-
-    rec.appendChild(summary);
-    rec.appendChild(grid);
     rec.appendChild(footer);
 
     msg.appendChild(label);
