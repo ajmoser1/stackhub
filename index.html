@@ -607,6 +607,25 @@ Include 3–6 stack items. Only include tools that are genuinely needed. Every p
     return textBlock ? textBlock.text : '';
   }
 
+  function extractJson(text) {
+    // Strip markdown code fences if present
+    const stripped = text.replace(/^```(?:json)?\s*/m, '').replace(/\s*```\s*$/m, '').trim();
+    // Try direct parse first
+    try {
+      const parsed = JSON.parse(stripped);
+      if (parsed.summary && parsed.stack) return parsed;
+    } catch {}
+    // Try to find a JSON object anywhere in the text
+    const match = text.match(/\{[\s\S]*\}/);
+    if (match) {
+      try {
+        const parsed = JSON.parse(match[0]);
+        if (parsed.summary && parsed.stack) return parsed;
+      } catch {}
+    }
+    return null;
+  }
+
   async function handleSend() {
     const text = inputEl.value.trim();
     if (!text) return;
@@ -624,22 +643,30 @@ Include 3–6 stack items. Only include tools that are genuinely needed. Every p
       removeTyping();
 
       if (assistantText.includes('[READY_TO_RECOMMEND]')) {
-        const displayText = assistantText.replace('[READY_TO_RECOMMEND]', '').trim();
-        if (displayText) appendMessage('assistant', displayText);
+        const withoutToken = assistantText.replace('[READY_TO_RECOMMEND]', '').trim();
         history.push({ role: 'assistant', content: assistantText });
 
-        history.push({ role: 'user', content: 'Please provide your recommendation now.' });
-        appendTyping();
+        // Model sometimes includes JSON in the same message as the token — use it directly
+        const inlineRec = extractJson(withoutToken);
+        if (inlineRec) {
+          renderRecommendation(inlineRec);
+        } else {
+          if (withoutToken) appendMessage('assistant', withoutToken);
 
-        const recText = await callWorker(history, true);
-        removeTyping();
+          history.push({ role: 'user', content: 'Please provide your recommendation now.' });
+          appendTyping();
 
-        try {
-          renderRecommendation(JSON.parse(recText));
-        } catch {
-          appendMessage('assistant', recText);
+          const recText = await callWorker(history, true);
+          removeTyping();
+          history.push({ role: 'assistant', content: recText });
+
+          const rec = extractJson(recText);
+          if (rec) {
+            renderRecommendation(rec);
+          } else {
+            appendMessage('assistant', 'Something went wrong generating the recommendation. Please try again.');
+          }
         }
-        history.push({ role: 'assistant', content: recText });
       } else {
         appendMessage('assistant', assistantText);
         history.push({ role: 'assistant', content: assistantText });
