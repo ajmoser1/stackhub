@@ -579,32 +579,41 @@ Include 3–6 stack items. Only include tools that are genuinely needed. Every p
   }
 
   async function callWorker(messages, useThinking = false) {
-    const body = {
-      model: 'claude-sonnet-4-6',
-      max_tokens: useThinking ? 16000 : 2048,
-      system: SYSTEM_PROMPT,
-      messages,
+    const attemptCall = async (withThinking) => {
+      const body = {
+        model: 'claude-sonnet-4-6',
+        max_tokens: withThinking ? 10000 : 2048,
+        system: SYSTEM_PROMPT,
+        messages,
+      };
+      if (withThinking) {
+        body.thinking = { type: 'enabled', budget_tokens: 5000 };
+      }
+      const response = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        const msg = err?.error?.message || `Error ${response.status}`;
+        const overloaded = response.status === 529 || msg.toLowerCase().includes('overload');
+        throw Object.assign(new Error(msg), { overloaded });
+      }
+      const data = await response.json();
+      const textBlock = data.content.find(b => b.type === 'text');
+      return textBlock ? textBlock.text : '';
     };
 
-    if (useThinking) {
-      body.thinking = { type: 'enabled', budget_tokens: 10000 };
+    try {
+      return await attemptCall(useThinking);
+    } catch (err) {
+      // If overloaded and was using thinking, retry without it
+      if (err.overloaded && useThinking) {
+        return await attemptCall(false);
+      }
+      throw err;
     }
-
-    const response = await fetch(WORKER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      throw new Error(err?.error?.message || `Error ${response.status}`);
-    }
-
-    const data = await response.json();
-    // Return only the text block (skip thinking blocks)
-    const textBlock = data.content.find(b => b.type === 'text');
-    return textBlock ? textBlock.text : '';
   }
 
   function extractJson(text) {
